@@ -10,15 +10,66 @@ usage()
     echo "usage: dirDiff [[[-w watch] [-d dry] [-i interactive]] | [-h]]"
 }
 
+showDebugInfo()
+{
+    echo "DEBUG:"
+
+    echo "watch: $watch"
+    echo "interactive: $interactive"
+    echo "dry: $dry"
+
+    echo "historyFile: $historyFile"
+
+    echo
+    echo "newHistory: ${#newHistory[@]} elements"
+    printf "%s\n" "${newHistory[@]}"
+    
+    echo
+    echo "oldHistory: ${#oldHistory[@]} elements"
+    printf "%s\n" "${oldHistory[@]}"
+
+    showDiff
+}
+
+showDiff()
+{
+    echo
+    echo "Diff:"
+    printf "%s\n" "${diff[@]}"
+}
+
 deepScan()
 {
+    echo "Scanning..."
     for file in ${1}/*; do
-    	if [ -d "$file" ]; then
-    	    deepScan "${file}"
-    	else
-    	    echo ${file##*/}
-    	fi
+	if [ -d "$file" ]; then
+	    if [ "$dry" != "1" ]; then
+		newHistory+=("$file")
+	    else
+		newHistory+=("$file")
+	    fi
+	    deepScan "${file}"
+	else
+	    if [ "$dry" != "1" ]; then
+		newHistory+=("$file")
+	    else
+		newHistory+=("$file")
+	    fi
+	fi
     done
+}
+
+getOldHistory() {
+    if [ -e "$historyFile" ]; then
+	echo "Scanning old history..."
+	while IFS= read line
+	do
+	    # display $line or do somthing with $line
+	    oldHistory+=("$line")
+	done < "$historyFile"
+    else
+	echo "No history detected."
+    fi
 }
 
 runInteractive()
@@ -42,17 +93,40 @@ runInteractive()
     fi
 }
 
+compareHistory()
+{
+    diff=()
+
+    for i in "${newHistory[@]}"; do
+	skip=
+	for j in "${oldHistory[@]}"; do
+            [[ $i == $j ]] && { skip=1; break; }
+	done
+	[[ -n $skip ]] || diff+=("+ $i")
+    done
+
+    for i in "${oldHistory[@]}"; do
+	skip=
+	for j in "${newHistory[@]}"; do
+            [[ $i == $j ]] && { skip=1; break; }
+	done
+	[[ -n $skip ]] || diff+=("- $i")
+    done
+}
+
 ### Main
 
 interactive=
 watch=
 dry=
+newHistory=()
+oldHistory=()
 
 if [ "$1" = "" ]; then
     usage
     exit 1
 fi
-    
+
 while [ "$1" != "" ]; do
     case $1 in
 	-w | --watch )        shift
@@ -62,7 +136,7 @@ while [ "$1" != "" ]; do
 	-i | --interactive )  shift
 			      interactive=1
 			      ;;
-	
+
 
 	-d | --dry )          shift
 			      dry=1
@@ -79,8 +153,6 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-       
-# deepScan(${watch})
 
 if [ "$interactive" != "" ]; then
     runInteractive
@@ -91,17 +163,26 @@ if [ "$watch" = "" ]; then
     exit 1
 fi
 
+historyFile="./history/${watch##*/}.txt"
+
+getOldHistory
+
 deepScan "${watch}"
 
-# for file in ${watch}/*; do
-#     if [ -d "$file" ]; then
-# 	echo "directory" ${file##*/}
-#     else
-# 	echo ${file##*/}
-#     fi
-# done
+compareHistory
 
-echo "DEBUG:"
-echo "$watch"
-echo "$interactive"
-echo "$dry"
+if [ "$dry" != "1" ]; then
+    if [ "${#oldHistory[@]}" = "0" ]; then
+	echo "Creating new history file..."
+	printf "%s\n" "${newHistory[@]}" > ${historyFile}
+    else
+	echo "Updating history..."
+	printf "%s\n" "${newHistory[@]}" > ${historyFile}
+    fi
+
+    showDiff
+fi
+
+if [ "$dry" = "1" ]; then
+    showDebugInfo
+fi
