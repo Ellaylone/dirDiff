@@ -5,13 +5,13 @@ HISTORY_LOCATION="./history"
 
 ### Functions
 
-# Displays usage information
+# Выводим помощь по использованию
 usage()
 {
     echo "usage: dirDiff [[[-w watch] [-d dry] [-i interactive]] | [-h]]"
 }
 
-# Additional info for debug
+# Дополнительная информация для отладки
 showDebugInfo()
 {
     echo "DEBUG:"
@@ -33,7 +33,7 @@ showDebugInfo()
     showDiff
 }
 
-# Prints actual final diff
+# Вывод списка изменений
 showDiff()
 {
     echo
@@ -41,35 +41,33 @@ showDiff()
     printf "%s\n" "${diff[@]}"
 }
 
-# Recursively scan directory and push all filenames into newHistory array
+# Рекурсивное сканирование целевой директории
 deepScan()
 {
     echo "Scanning..."
+    # Для каждого файла в директории переданной в качестве аргумента
     for file in ${1}/*; do
+	# Если директория
 	if [ -d "$file" ]; then
-	    if [ "$dry" != "1" ]; then
-		newHistory+=("$file")
-	    else
-		newHistory+=("$file")
-	    fi
+	    # Добавляем путь к файлу в массив newHistory
+	    newHistory+=("$file")
+	    # Рекурсивно вызываем deepScan
 	    deepScan "${file}"
 	else
-	    if [ "$dry" != "1" ]; then
-		newHistory+=("$file")
-	    else
-		newHistory+=("$file")
-	    fi
+	    newHistory+=("$file")
 	fi
     done
 }
 
-# React history file and push all filenames stored in it into oldHistory array
+# Читает файл истории и записываем значения из него в массив oldHistory
 getOldHistory() {
+    # Если файл существует
     if [ -e "$historyFile" ]; then
 	echo "Scanning old history..."
+	# Читаем построчно
 	while IFS= read line
 	do
-	    # display $line or do somthing with $line
+	    # Добавляем строку из файла истории в массив oldHistory
 	    oldHistory+=("$line")
 	done < "$historyFile"
     else
@@ -77,12 +75,13 @@ getOldHistory() {
     fi
 }
 
-# Basic interactive mode
+# Базовый интерактивный режим
 runInteractive()
 {
     if [ "$interactive" = "1" ]; then
 	response=
 
+	# Получаем путь к целевой папке
 	echo -n "Enter full path to directory to watch > "
 	read response
 
@@ -90,6 +89,7 @@ runInteractive()
 	    watch=$response
 	fi
 
+	# Спрашиваем запуститься ли нам в пробном прогоне
 	echo -n "Should dirDiff dry run? (y/n) > "
 	read response
 
@@ -99,21 +99,26 @@ runInteractive()
     fi
 }
 
-# Basic compare mechanic
+# Функция сравнения истории
 compareHistory()
 {
     diff=()
 
-    # Get additions diff
+    # Получаем список добавленных элементов
+    # Для каждого элемента newHistory
     for i in "${newHistory[@]}"; do
 	skip=
+	# Для каждого элемента oldHistory
 	for j in "${oldHistory[@]}"; do
+	    # Если находим совпадение - идем к следующему элементу
             [[ $i == $j ]] && { skip=1; break; }
 	done
+	# Если не нашли совпадений - добавляем элемент в дифф
 	[[ -n $skip ]] || diff+=("+ $i")
     done
 
-    # Get deletions diff
+    # Получаем список удаленных элементов
+    # Тот же самый проход по всем элементам, но теперь проверяем наличие элементов из oldHistory в newHistory
     for i in "${oldHistory[@]}"; do
 	skip=
 	for j in "${newHistory[@]}"; do
@@ -123,17 +128,18 @@ compareHistory()
     done
 }
 
-# See if history directory exists and create it not
+# Проверка на существование директории для хранения истории
 checkForHistoryDir()
 {
+    # Проверка на существование директории
     if [ -d "$dirname" ]; then
 	echo "History directory already exists..."
     else
 	echo "History directory does not exist. Creating..."
+	# Создание директории
 	mkdir -p -- "$dirname"
     fi
 }
-
 
 ### Main
 
@@ -146,13 +152,13 @@ oldHistory=()
 
 checkForHistoryDir
 
-# If no arguments are given - show usage info
+# Если запустили без аргументов - покажем инструкцию по использованию
 if [ "$1" = "" ]; then
     usage
     exit 1
 fi
 
-# Check arguments and set flags based on arguments
+# Проверяем аргументы и устанавливаем соответствующие им флаги
 while [ "$1" != "" ]; do
     case $1 in
 	-w | --watch )        shift
@@ -180,18 +186,18 @@ while [ "$1" != "" ]; do
     shift
 done
 
-# Run in interactive mode
+# Если получили флаг интерактивного режима - запускаем интерактивный режим
 if [ "$interactive" != "" ]; then
     runInteractive
 fi
 
-# Stop execution if we don't know which directory we should watch
+# Если у нас все еще нет пути к папке за которой нужно наблюдать - останавливаем выполнение
 if [ "$watch" = "" ]; then
     echo "ERROR: Target directory was not specified"
     exit 1
 fi
 
-# Concatenate path to history file for this run
+# Собираем путь к файлу истории
 historyFile="${dirname}/${watch##*/}.txt"
 
 getOldHistory
@@ -200,20 +206,20 @@ deepScan "${watch}"
 
 compareHistory
 
-# Write files only if dry run is disabled
+# Если не включен пробный режим 
 if [ "$dry" != "1" ]; then
     if [ "${#oldHistory[@]}" = "0" ]; then
 	echo "Creating new history file..."
-	printf "%s\n" "${newHistory[@]}" > ${historyFile}
     else
 	echo "Updating history..."
-	printf "%s\n" "${newHistory[@]}" > ${historyFile}
     fi
+
+    printf "%s\n" "${newHistory[@]}" > ${historyFile}
 
     showDiff
 fi
 
-# Show debug info only if dry run is enabled
+# Если включен пробный режим - показываем отладочную информацию
 if [ "$dry" = "1" ]; then
     showDebugInfo
 fi
