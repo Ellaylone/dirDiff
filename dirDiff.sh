@@ -5,11 +5,13 @@ HISTORY_LOCATION="./history"
 
 ### Functions
 
+# Displays usage information
 usage()
 {
     echo "usage: dirDiff [[[-w watch] [-d dry] [-i interactive]] | [-h]]"
 }
 
+# Additional info for debug
 showDebugInfo()
 {
     echo "DEBUG:"
@@ -31,6 +33,7 @@ showDebugInfo()
     showDiff
 }
 
+# Prints actual final diff
 showDiff()
 {
     echo
@@ -38,6 +41,7 @@ showDiff()
     printf "%s\n" "${diff[@]}"
 }
 
+# Recursively scan directory and push all filenames into newHistory array
 deepScan()
 {
     echo "Scanning..."
@@ -59,6 +63,7 @@ deepScan()
     done
 }
 
+# React history file and push all filenames stored in it into oldHistory array
 getOldHistory() {
     if [ -e "$historyFile" ]; then
 	echo "Scanning old history..."
@@ -72,6 +77,7 @@ getOldHistory() {
     fi
 }
 
+# Basic interactive mode
 runInteractive()
 {
     if [ "$interactive" = "1" ]; then
@@ -93,10 +99,12 @@ runInteractive()
     fi
 }
 
+# Basic compare mechanic
 compareHistory()
 {
     diff=()
 
+    # Get additions diff
     for i in "${newHistory[@]}"; do
 	skip=
 	for j in "${oldHistory[@]}"; do
@@ -105,6 +113,7 @@ compareHistory()
 	[[ -n $skip ]] || diff+=("+ $i")
     done
 
+    # Get deletions diff
     for i in "${oldHistory[@]}"; do
 	skip=
 	for j in "${newHistory[@]}"; do
@@ -114,6 +123,7 @@ compareHistory()
     done
 }
 
+# See if history directory exists and create it not
 checkForHistoryDir()
 {
     if [ -d "$dirname" ]; then
@@ -136,11 +146,13 @@ oldHistory=()
 
 checkForHistoryDir
 
+# If no arguments are given - show usage info
 if [ "$1" = "" ]; then
     usage
     exit 1
 fi
 
+# Check arguments and set flags based on arguments
 while [ "$1" != "" ]; do
     case $1 in
 	-w | --watch )        shift
@@ -168,15 +180,18 @@ while [ "$1" != "" ]; do
     shift
 done
 
+# Run in interactive mode
 if [ "$interactive" != "" ]; then
     runInteractive
 fi
 
+# Stop execution if we don't know which directory we should watch
 if [ "$watch" = "" ]; then
     echo "ERROR: Target directory was not specified"
     exit 1
 fi
 
+# Concatenate path to history file for this run
 historyFile="${dirname}/${watch##*/}.txt"
 
 getOldHistory
@@ -185,6 +200,7 @@ deepScan "${watch}"
 
 compareHistory
 
+# Write files only if dry run is disabled
 if [ "$dry" != "1" ]; then
     if [ "${#oldHistory[@]}" = "0" ]; then
 	echo "Creating new history file..."
@@ -197,6 +213,7 @@ if [ "$dry" != "1" ]; then
     showDiff
 fi
 
+# Show debug info only if dry run is enabled
 if [ "$dry" = "1" ]; then
     showDebugInfo
 fi
