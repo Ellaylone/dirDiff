@@ -114,13 +114,27 @@ compareHistory()
     done
 }
 
+checkForHistoryDir()
+{
+    if [ -d "$dirname" ]; then
+	echo "History directory already exists..."
+    else
+	echo "History directory does not exist. Creating..."
+	mkdir -p -- "$dirname"
+    fi
+}
+
+
 ### Main
 
 interactive=
 watch=
 dry=
+dirname="history"
 newHistory=()
 oldHistory=()
+
+checkForHistoryDir
 
 if [ "$1" = "" ]; then
     usage
@@ -163,7 +177,7 @@ if [ "$watch" = "" ]; then
     exit 1
 fi
 
-historyFile="./history/${watch##*/}.txt"
+historyFile="${dirname}/${watch##*/}.txt"
 
 getOldHistory
 
